@@ -1,0 +1,1019 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#fffaf7">
+<title>Idea Space — 무한 아이디어 캔버스</title>
+<style>
+:root {
+  --bg:#fffaf7; --panel:#fff; --ink:#383448; --muted:#827d91;
+  --line:#eee7ef; --accent:#a78bfa; --accent-dark:#8063d8;
+  --shadow:0 8px 28px #46355b12;
+}
+* { box-sizing:border-box }
+html,body {
+  width:100%; height:100%; margin:0; overflow:hidden;
+  font-family:Inter,"Pretendard","Noto Sans KR",system-ui,sans-serif;
+  color:var(--ink); background:var(--bg);
+}
+button,input,textarea,select { font:inherit }
+button { cursor:pointer; border:0 }
+button:focus-visible,input:focus-visible,textarea:focus-visible {
+  outline:2px solid var(--accent-dark); outline-offset:2px;
+}
+.app { height:100dvh; display:flex; flex-direction:column }
+.topbar {
+  height:60px; flex:none; display:flex; align-items:center; gap:12px;
+  padding:0 16px; background:#ffffffed; border-bottom:1px solid var(--line);
+  z-index:20;
+}
+.brand { display:flex; align-items:center; gap:9px; font-weight:850; white-space:nowrap }
+.logo {
+  width:32px; height:32px; display:grid; place-items:center;
+  border-radius:11px; background:#f0eaff; color:#8063d8; font-size:18px;
+}
+.board-title {
+  width:min(220px,24vw); border:1px solid transparent; background:transparent;
+  padding:7px 9px; border-radius:8px; font-weight:650; color:var(--ink);
+}
+.board-title:hover,.board-title:focus { background:#faf7ff; border-color:#e9defb; outline:none }
+.top-actions { display:flex; align-items:center; gap:6px; margin-left:auto }
+.btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  min-height:36px; padding:8px 11px; border-radius:10px;
+  background:#f7f4fb; color:#554b68; font-size:13px; font-weight:650;
+  white-space:nowrap; transition:background .15s,transform .15s;
+}
+.btn:hover { background:#eee8fa }
+.btn:active { transform:scale(.97) }
+.btn.primary { background:#a78bfa; color:#fff }
+.btn.primary:hover { background:#9475ef }
+.btn.icon { width:36px; padding:0; font-size:16px }
+.btn:disabled { opacity:.35; cursor:not-allowed }
+.status { font-size:11px; color:var(--muted); white-space:nowrap }
+.workspace {
+  position:relative; flex:1; min-height:0; overflow:hidden;
+  background-color:#fffafc; touch-action:none;
+}
+#canvas { position:absolute; inset:0; overflow:hidden; touch-action:none }
+#world {
+  position:absolute; left:0; top:0; width:0; height:0; transform-origin:0 0;
+}
+#grid {
+  position:absolute; left:-100000px; top:-100000px;
+  width:200000px; height:200000px;
+  background-image:radial-gradient(#dcd4e8 1px,transparent 1px);
+  background-size:24px 24px; pointer-events:none; opacity:.78;
+}
+#edges {
+  position:absolute; inset:0; overflow:visible; pointer-events:none;
+}
+.edge { pointer-events:stroke; cursor:pointer }
+.edge path { fill:none; stroke:#aa9acb; stroke-width:2.4; stroke-linecap:round }
+.edge.selected path { stroke:#8063d8; stroke-width:3.6 }
+.edge-label {
+  font-size:12px; fill:#75688e; paint-order:stroke;
+  stroke:#fffafc; stroke-width:5px; stroke-linejoin:round;
+}
+.item {
+  position:absolute; min-width:90px; min-height:55px;
+  touch-action:none; user-select:none;
+}
+.item.selected { outline:2px solid #9b7aea; outline-offset:3px }
+.item.grouped { box-shadow:0 0 0 2px #c8b5f7 }
+.note {
+  border-radius:5px 5px 12px 12px; padding:14px 14px 12px;
+  box-shadow:0 5px 16px #59476c14; display:flex; flex-direction:column;
+  gap:8px; border:1px solid #00000008;
+}
+.note::before {
+  content:""; position:absolute; top:0; left:0; right:0; height:5px;
+  background:#0000000b; border-radius:5px 5px 0 0;
+}
+.item-head {
+  display:flex; align-items:center; gap:6px; cursor:grab; min-height:17px;
+}
+.item-head:active { cursor:grabbing }
+.grip { color:#746c80; opacity:.6; font-size:13px }
+.item-title {
+  font-size:13px; font-weight:800; line-height:1.35; outline:none;
+  min-width:0; flex:1; overflow-wrap:anywhere;
+}
+.item-body {
+  font-size:13px; line-height:1.55; outline:none; white-space:pre-wrap;
+  overflow-wrap:anywhere; min-height:24px; user-select:text; cursor:text;
+}
+.item-body:empty:before { content:attr(data-placeholder); color:#887f92 }
+.item-tools {
+  display:flex; gap:5px; align-items:center; justify-content:flex-end;
+  margin-top:auto; opacity:.75;
+}
+.mini {
+  width:25px; height:25px; border-radius:7px; background:#ffffff99;
+  color:#51475e; display:grid; place-items:center; font-size:13px;
+}
+.mini:hover { background:#fff }
+.color-picker {
+  width:25px; height:25px; border:2px solid #ffffffb8;
+  border-radius:50%; padding:0; overflow:hidden; background:transparent;
+}
+.color-picker::-webkit-color-swatch-wrapper { padding:0 }
+.color-picker::-webkit-color-swatch { border:0; border-radius:50% }
+.text-item {
+  padding:8px 10px; min-width:80px; min-height:35px;
+  background:transparent; box-shadow:none; border:1px dashed transparent;
+}
+.text-item .item-body { font-size:20px; font-weight:750; min-height:30px }
+.text-item.selected { border-color:#a78bfa }
+.shape-item {
+  display:grid; place-items:center; min-width:80px; min-height:60px;
+  border:2px solid #c4b5fd; background:#ede9feaa; color:#51446e;
+  border-radius:12px; padding:10px; text-align:center; font-size:13px;
+  font-weight:650;
+}
+.shape-item.circle { border-radius:50% }
+.shape-item.diamond {
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);
+  border:0; outline:2px solid #c4b5fd; outline-offset:-2px; border-radius:0;
+}
+.shape-item .shape-text { outline:none; user-select:text; overflow-wrap:anywhere }
+.image-item {
+  padding:6px; background:#fff; border-radius:10px;
+  box-shadow:var(--shadow); border:1px solid #eee;
+}
+.image-item img {
+  display:block; width:100%; height:100%; object-fit:contain;
+  pointer-events:none; border-radius:6px;
+}
+#selectionBox {
+  position:absolute; border:1px solid #9272df; background:#a78bfa20;
+  pointer-events:none; display:none;
+}
+.toolbar {
+  position:absolute; left:14px; top:14px; z-index:10;
+  display:flex; flex-direction:column; gap:5px; padding:7px;
+  background:#ffffffed; border:1px solid #eee6f4; border-radius:14px;
+  box-shadow:var(--shadow);
+}
+.tool {
+  width:38px; height:38px; display:grid; place-items:center;
+  border-radius:10px; background:transparent; color:#696078;
+  font-size:18px; position:relative;
+}
+.tool:hover { background:#f5f0ff }
+.tool.active { background:#eee6ff; color:#7955cf }
+.tool[title]:hover:after {
+  content:attr(title); position:absolute; left:47px; top:50%;
+  transform:translateY(-50%); background:#393347; color:white;
+  padding:6px 8px; border-radius:6px; font-size:11px;
+  white-space:nowrap; z-index:50;
+}
+.tool-divider { height:1px; background:#eee7f2; margin:3px 4px }
+.bottom-left {
+  position:absolute; left:14px; bottom:14px; z-index:10;
+  display:flex; gap:7px; align-items:center;
+}
+.pill {
+  background:#ffffffed; border:1px solid #eee6f4; border-radius:12px;
+  box-shadow:var(--shadow); padding:7px 10px; display:flex;
+  align-items:center; gap:8px; font-size:12px; color:#736a80;
+}
+.zoom-controls {
+  position:absolute; right:14px; bottom:14px; z-index:10;
+  display:flex; align-items:center; gap:5px; padding:5px;
+  background:#ffffffed; border:1px solid #eee6f4;
+  border-radius:12px; box-shadow:var(--shadow);
+}
+.zoom-controls button {
+  width:32px; height:32px; border-radius:8px;
+  background:transparent; color:#5e556d; font-size:18px;
+}
+.zoom-controls button:hover { background:#f4effb }
+.zoom-label { font-size:12px; min-width:46px; text-align:center; color:#706780 }
+.minimap {
+  position:absolute; right:14px; top:14px; width:155px; height:100px;
+  border:1px solid #eee6f4; border-radius:12px;
+  background:#ffffffed; box-shadow:var(--shadow); overflow:hidden; z-index:8;
+}
+.minimap canvas { width:100%; height:100% }
+.search-panel {
+  position:absolute; top:12px; left:50%; transform:translateX(-50%);
+  z-index:25; width:min(360px,calc(100% - 130px)); display:none;
+  background:white; border:1px solid var(--line); box-shadow:var(--shadow);
+  border-radius:13px; padding:8px;
+}
+.search-panel.open { display:block }
+.search-panel input {
+  width:100%; border:0; outline:none; padding:8px 9px; color:var(--ink);
+}
+.search-results { max-height:220px; overflow:auto }
+.search-result {
+  width:100%; text-align:left; background:white; padding:9px;
+  border-radius:8px; color:var(--ink); font-size:12px;
+}
+.search-result:hover { background:#f7f2ff }
+.context {
+  position:fixed; display:none; z-index:60; min-width:175px;
+  background:white; border:1px solid var(--line);
+  box-shadow:0 12px 35px #33274422; border-radius:12px; padding:5px;
+}
+.context button {
+  display:block; width:100%; text-align:left; background:white;
+  padding:9px 10px; border-radius:8px; font-size:12px; color:var(--ink);
+}
+.context button:hover { background:#f5f0ff }
+.toast {
+  position:absolute; left:50%; bottom:65px; transform:translateX(-50%);
+  z-index:40; background:#3c354a; color:white; padding:9px 13px;
+  border-radius:10px; font-size:12px; opacity:0; pointer-events:none;
+  transition:opacity .2s; white-space:nowrap;
+}
+.toast.show { opacity:1 }
+.modal-backdrop {
+  position:fixed; inset:0; background:#342a4540; z-index:100;
+  display:none; align-items:center; justify-content:center; padding:18px;
+}
+.modal-backdrop.open { display:flex }
+.modal {
+  width:min(440px,100%); background:white; border-radius:18px;
+  padding:20px; box-shadow:0 20px 70px #30213f2b;
+}
+.modal h2 { margin:0 0 6px; font-size:18px }
+.modal p { margin:0 0 15px; color:var(--muted); font-size:12px; line-height:1.5 }
+.field { display:flex; flex-direction:column; gap:6px; margin:12px 0; font-size:12px; font-weight:700 }
+.field input,.field textarea,.field select {
+  width:100%; border:1px solid #e8e0ef; border-radius:10px;
+  padding:10px; color:var(--ink); background:#fff;
+}
+.field textarea { min-height:100px; resize:vertical }
+.modal-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:17px }
+.hidden-file { display:none }
+@media(max-width:700px) {
+  .topbar { height:54px; padding:0 9px; gap:6px }
+  .brand { font-size:14px; gap:6px }
+  .logo { width:29px; height:29px }
+  .board-title { width:min(115px,24vw); font-size:12px; padding:6px 4px }
+  .top-actions { gap:3px }
+  .top-actions .btn { min-height:33px; padding:6px 8px; font-size:12px }
+  .top-actions .btn .wide-label { display:none }
+  .status { display:none }
+  .toolbar {
+    left:8px; top:auto; bottom:60px; flex-direction:row; gap:2px;
+    padding:5px; max-width:calc(100% - 16px); overflow-x:auto;
+  }
+  .tool { flex:none; width:34px; height:34px; font-size:16px }
+  .tool-divider { width:1px; height:24px; margin:5px 2px }
+  .minimap { width:105px; height:68px; right:8px; top:8px }
+  .bottom-left { left:8px; bottom:8px }
+  .zoom-controls { right:8px; bottom:8px }
+  .pill { font-size:10px; padding:6px 8px }
+  .zoom-controls button { width:29px; height:29px }
+  .toast { bottom:105px; max-width:90%; white-space:normal; text-align:center }
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="topbar">
+  <div class="brand"><div class="logo">✳</div><span>Idea Space</span></div>
+  <input id="boardTitle" class="board-title" value="나의 아이디어 보드" aria-label="보드 이름">
+  <div class="top-actions">
+    <button id="undoBtn" class="btn icon" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소" disabled>↶</button>
+    <button id="redoBtn" class="btn icon" title="다시 실행 (Ctrl+Y)" aria-label="다시 실행" disabled>↷</button>
+    <button id="searchBtn" class="btn icon" title="메모 검색" aria-label="메모 검색">⌕</button>
+    <button id="exportBtn" class="btn">⇩ <span class="wide-label">백업</span></button>
+    <button id="importBtn" class="btn">⇧ <span class="wide-label">가져오기</span></button>
+    <span id="saveStatus" class="status">자동 저장됨</span>
+  </div>
+</header>
+<main class="workspace" id="workspace">
+  <div id="canvas">
+    <div id="world">
+      <div id="grid"></div>
+      <svg id="edges" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="items"></div>
+    </div>
+    <div id="selectionBox"></div>
+  </div>
+  <nav class="toolbar" aria-label="캔버스 도구">
+    <button class="tool active" data-tool="select" title="선택 / 이동 (V)">↖</button>
+    <button class="tool" data-tool="pan" title="캔버스 이동 (H)">✋</button>
+    <div class="tool-divider"></div>
+    <button class="tool" data-tool="note" title="메모 추가 (N)">▤</button>
+    <button class="tool" data-tool="text" title="텍스트 상자 (T)">T</button>
+    <button class="tool" data-tool="shape" title="도형 추가 (S)">◇</button>
+    <button class="tool" data-tool="image" title="이미지 추가">▧</button>
+    <div class="tool-divider"></div>
+    <button class="tool" data-tool="connect" title="연결선 (C)">↗</button>
+    <button class="tool" data-tool="group" title="선택 항목 그룹화">▦</button>
+    <button class="tool" data-tool="delete" title="선택 항목 삭제">⌫</button>
+  </nav>
+  <div class="search-panel" id="searchPanel">
+    <input id="searchInput" type="search" placeholder="메모 제목이나 내용 검색…">
+    <div id="searchResults" class="search-results"></div>
+  </div>
+  <div class="minimap"><canvas id="minimapCanvas" width="310" height="200"></canvas></div>
+  <div class="bottom-left">
+    <div class="pill"><span>✦</span><span id="itemCount">0개 요소</span></div>
+    <div class="pill" id="hint">빈 공간 더블클릭으로 메모 추가</div>
+  </div>
+  <div class="zoom-controls">
+    <button id="zoomOut" aria-label="축소">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" aria-label="확대">+</button>
+    <button id="fitBtn" title="전체 보기" aria-label="전체 보기">⛶</button>
+  </div>
+  <div id="toast" class="toast"></div>
+</main>
+</div>
+<div id="contextMenu" class="context">
+  <button data-action="edit">메모 편집</button>
+  <button data-action="connect">연결선 시작</button>
+  <button data-action="group">선택 항목 그룹화</button>
+  <button data-action="duplicate">복제</button>
+  <button data-action="front">맨 앞으로 가져오기</button>
+  <button data-action="delete">삭제</button>
+</div>
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h2 id="modalTitle">메모 편집</h2>
+    <p id="modalDescription">아이디어를 자유롭게 적어 보세요.</p>
+    <div id="modalFields"></div>
+    <div class="modal-actions">
+      <button id="modalCancel" class="btn">취소</button>
+      <button id="modalSave" class="btn primary">저장</button>
+    </div>
+  </div>
+</div>
+<input id="imageInput" class="hidden-file" type="file" accept="image/*">
+<input id="importInput" class="hidden-file" type="file" accept="application/json,.json">
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const canvas=$('#canvas'),world=$('#world'),grid=$('#grid');
+const itemsEl=$('#items'),edgesSvg=$('#edges');
+const state={
+ x:0,y:0,zoom:1,tool:'select',items:[],edges:[],groups:[],
+ selected:new Set(),selectedEdge:null,nextId:1,connectFrom:null,
+ drag:null,spaceDown:false
+};
+const COLORS=['#FFF0B8','#FFDDE8','#DDF4E4','#DDEBFF','#E9DFFF','#FFE4CC','#F7DDF8','#E2F4F5'];
+let undoStack=[],redoStack=[],saveTimer=null,toastTimer=null,modalCallback=null,contextTarget=null;
+const STORAGE_KEY='idea-space-board-v1';
+const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+const uid=()=>String(state.nextId++);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const getItem=id=>state.items.find(i=>i.id===id);
+
+function toast(msg){
+ const t=$('#toast');t.textContent=msg;t.classList.add('show');
+ clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1900);
+}
+function snapshot(){
+ return JSON.stringify({
+  title:$('#boardTitle').value,items:state.items,edges:state.edges,
+  groups:state.groups,nextId:state.nextId,x:state.x,y:state.y,zoom:state.zoom
+ });
+}
+function pushUndo(){
+ undoStack.push(snapshot());
+ if(undoStack.length>80)undoStack.shift();
+ redoStack=[];updateHistoryButtons();
+}
+function updateHistoryButtons(){
+ $('#undoBtn').disabled=!undoStack.length;
+ $('#redoBtn').disabled=!redoStack.length;
+}
+function restoreSnapshot(s){
+ try{
+  const d=JSON.parse(s);
+  $('#boardTitle').value=d.title||'나의 아이디어 보드';
+  state.items=d.items||[];state.edges=d.edges||[];state.groups=d.groups||[];
+  state.nextId=d.nextId||1;state.x=d.x||0;state.y=d.y||0;
+  state.zoom=d.zoom||1;state.selected.clear();state.selectedEdge=null;
+  renderAll();applyTransform();scheduleSave();updateHistoryButtons();
+ }catch(e){toast('이전 상태를 불러오지 못했어요.')}
+}
+function undo(){
+ if(!undoStack.length)return;
+ redoStack.push(snapshot());restoreSnapshot(undoStack.pop());
+ updateHistoryButtons();toast('실행을 취소했어요');
+}
+function redo(){
+ if(!redoStack.length)return;
+ undoStack.push(snapshot());restoreSnapshot(redoStack.pop());
+ updateHistoryButtons();toast('다시 실행했어요');
+}
+function scheduleSave(){
+ $('#saveStatus').textContent='저장 중…';clearTimeout(saveTimer);
+ saveTimer=setTimeout(()=>{
+  try{
+   localStorage.setItem(STORAGE_KEY,snapshot());
+   $('#saveStatus').textContent='자동 저장됨';
+  }catch(e){
+   $('#saveStatus').textContent='저장 공간 부족';
+   toast('저장에 실패했어요. 백업 파일을 만들어 주세요.');
+  }
+ },250);
+}
+function loadSaved(){
+ try{
+  const raw=localStorage.getItem(STORAGE_KEY);
+  if(raw){
+   const d=JSON.parse(raw);
+   $('#boardTitle').value=d.title||'나의 아이디어 보드';
+   state.items=Array.isArray(d.items)?d.items:[];
+   state.edges=Array.isArray(d.edges)?d.edges:[];
+   state.groups=Array.isArray(d.groups)?d.groups:[];
+   state.nextId=d.nextId||1;state.x=Number(d.x)||0;
+   state.y=Number(d.y)||0;state.zoom=clamp(Number(d.zoom)||1,.25,2.5);
+  }
+ }catch(e){toast('저장된 보드를 읽지 못했어요.')}
+}
+function screenToWorld(sx,sy){
+ const r=canvas.getBoundingClientRect();
+ return{x:(sx-r.left-state.x)/state.zoom,y:(sy-r.top-state.y)/state.zoom};
+}
+function applyTransform(){
+ world.style.transform=`translate(${state.x}px,${state.y}px) scale(${state.zoom})`;
+ $('#zoomLabel').textContent=Math.round(state.zoom*100)+'%';
+ drawEdges();drawMinimap();
+}
+function zoomAt(newZoom,sx,sy){
+ newZoom=clamp(newZoom,.2,3);
+ const r=canvas.getBoundingClientRect(),px=sx-r.left,py=sy-r.top;
+ const wx=(px-state.x)/state.zoom,wy=(py-state.y)/state.zoom;
+ state.zoom=newZoom;state.x=px-wx*newZoom;state.y=py-wy*newZoom;
+ applyTransform();scheduleSave();
+}
+function makeItem(type,x,y,extra={}){
+ pushUndo();
+ const base={
+  id:uid(),type,x,y,w:type==='note'?210:type==='text'?180:type==='image'?220:110,
+  h:type==='note'?170:type==='text'?65:type==='image'?160:85,
+  groupId:null,...extra
+ };
+ state.items.push(base);state.selected.clear();state.selected.add(base.id);
+ state.selectedEdge=null;renderItem(base);updateUI();scheduleSave();
+ return base;
+}
+function addNote(x,y){
+ const n=makeItem('note',x,y,{
+  title:'새로운 아이디어',text:'여기에 생각을 적어 보세요.',
+  color:COLORS[Math.floor(Math.random()*COLORS.length)]
+ });
+ renderItem(n);focusItem(n.id,'title');
+}
+function addText(x,y){
+ const t=makeItem('text',x,y,{text:'텍스트를 입력하세요',color:'#51475e'});
+ renderItem(t);focusItem(t.id,'text');
+}
+function addShape(x,y,shape='rect'){
+ const s=makeItem('shape',x,y,{text:'내용 입력',shape,color:'#E9DFFF'});
+ renderItem(s);focusItem(s.id,'text');
+}
+function addImageData(data,x,y,w=220,h=160){
+ const it=makeItem('image',x,y,{src:data,w,h});renderItem(it);
+ toast('이미지를 추가했어요');
+}
+function toHex(c){return /^#[0-9a-f]{6}$/i.test(c)?c:'#a78bfa'}
+function renderItem(it){
+ let el=document.querySelector(`[data-id="${CSS.escape(it.id)}"]`);
+ if(!el){el=document.createElement('div');el.className='item';el.dataset.id=it.id;itemsEl.appendChild(el)}
+ el.className='item '+(
+  it.type==='note'?'note':
+  it.type==='text'?'text-item':
+  it.type==='shape'?'shape-item '+(it.shape==='circle'?'circle':it.shape==='diamond'?'diamond':''):
+  it.type==='image'?'image-item':''
+ );
+ el.style.left=it.x+'px';el.style.top=it.y+'px';
+ el.style.width=it.w+'px';el.style.height=it.h+'px';
+ el.style.background=it.type==='note'?it.color:
+  it.type==='shape'?(it.color||'#E9DFFF')+'cc':
+  it.type==='text'?'transparent':'';
+ el.style.color=it.type==='text'?(it.color||'#51475e'):'';
+ el.classList.toggle('selected',state.selected.has(it.id));
+ el.classList.toggle('grouped',!!it.groupId&&state.selected.has(it.id));
+
+ if(it.type==='note'){
+  el.innerHTML=`
+   <div class="item-head" data-drag="1"><span class="grip">⠿</span>
+    <div class="item-title" contenteditable="true" spellcheck="false" data-edit="title">${esc(it.title||'메모')}</div>
+   </div>
+   <div class="item-body" contenteditable="true" spellcheck="false" data-edit="text" data-placeholder="아이디어를 적어 보세요…">${esc(it.text||'')}</div>
+   <div class="item-tools">
+    <input class="color-picker" type="color" value="${esc(toHex(it.color||'#FFF0B8'))}" title="메모 색상" aria-label="메모 색상">
+    <button class="mini" data-action="resize" title="크기 조절">↘</button>
+    <button class="mini" data-action="edit" title="편집">✎</button>
+    <button class="mini" data-action="delete" title="삭제">×</button>
+   </div>`;
+ }else if(it.type==='text'){
+  el.innerHTML=`
+   <div class="item-head" data-drag="1"><span class="grip">⠿</span><span style="font-size:10px;opacity:.6">텍스트</span></div>
+   <div class="item-body" contenteditable="true" spellcheck="false" data-edit="text">${esc(it.text||'')}</div>
+   <div class="item-tools">
+    <input class="color-picker" type="color" value="${esc(toHex(it.color||'#51475e'))}" title="글자 색상">
+    <button class="mini" data-action="resize" title="크기 조절">↘</button>
+    <button class="mini" data-action="delete" title="삭제">×</button>
+   </div>`;
+ }else if(it.type==='shape'){
+  el.innerHTML=`
+   <div class="item-head" data-drag="1" style="position:absolute;top:3px;left:6px;right:6px;opacity:.5"><span class="grip">⠿</span></div>
+   <div class="shape-text" contenteditable="true" data-edit="text">${esc(it.text||'')}</div>
+   <div class="item-tools" style="position:absolute;right:3px;bottom:3px">
+    <input class="color-picker" type="color" value="${esc(toHex(it.color||'#E9DFFF'))}" title="도형 색상">
+    <button class="mini" data-action="delete" title="삭제">×</button>
+   </div>`;
+ }else if(it.type==='image'){
+  el.innerHTML=`
+   <img alt="캔버스 이미지" src="${it.src||''}">
+   <div class="item-tools" style="position:absolute;right:3px;top:3px">
+    <button class="mini" data-action="resize" title="크기 조절">↘</button>
+    <button class="mini" data-action="delete" title="삭제">×</button>
+   </div>`;
+ }
+}
+function focusItem(id,field){
+ setTimeout(()=>{
+  const el=document.querySelector(`[data-id="${CSS.escape(id)}"] [data-edit="${field}"]`);
+  if(el){
+   el.focus();const range=document.createRange();range.selectNodeContents(el);
+   range.collapse(false);const sel=getSelection();sel.removeAllRanges();sel.addRange(range);
+  }
+ },20);
+}
+function updateUI(){
+ $('#itemCount').textContent=`${state.items.length}개 요소`;
+ document.querySelectorAll('.item').forEach(el=>el.classList.toggle('selected',state.selected.has(el.dataset.id)));
+ drawEdges();drawMinimap();updateHistoryButtons();
+}
+function drawEdges(){
+ edgesSvg.innerHTML='';
+ edgesSvg.setAttribute('width','200000');edgesSvg.setAttribute('height','200000');
+ edgesSvg.style.left='-100000px';edgesSvg.style.top='-100000px';
+ const offset=100000;
+ state.edges.forEach(edge=>{
+  const a=getItem(edge.from),b=getItem(edge.to);if(!a||!b)return;
+  const ax=a.x+a.w/2+offset,ay=a.y+a.h/2+offset;
+  const bx=b.x+b.w/2+offset,by=b.y+b.h/2+offset;
+  const dx=bx-ax,curve=Math.max(35,Math.abs(dx)*.35);
+  const d=`M ${ax} ${ay} C ${ax+(dx>=0?curve:-curve)} ${ay}, ${bx-(dx>=0?curve:-curve)} ${by}, ${bx} ${by}`;
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('class','edge'+(state.selectedEdge===edge.id?' selected':''));
+  g.dataset.edgeId=edge.id;
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d',d);g.appendChild(path);
+  if(edge.label){
+   const tx=document.createElementNS('http://www.w3.org/2000/svg','text');
+   tx.setAttribute('x',(ax+bx)/2);tx.setAttribute('y',(ay+by)/2-8);
+   tx.setAttribute('class','edge-label');tx.setAttribute('text-anchor','middle');
+   tx.textContent=edge.label;g.appendChild(tx);
+  }
+  if(edge.arrow){
+   const head=document.createElementNS('http://www.w3.org/2000/svg','path');
+   head.setAttribute('d',`M ${bx-8} ${by-5} L ${bx} ${by} L ${bx-8} ${by+5}`);
+   head.setAttribute('stroke','#aa9acb');head.setAttribute('fill','none');
+   head.setAttribute('stroke-width','2.4');g.appendChild(head);
+  }
+  edgesSvg.appendChild(g);
+ });
+}
+function drawMinimap(){
+ const c=$('#minimapCanvas'),ctx=c.getContext('2d');
+ ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#fffafd';ctx.fillRect(0,0,c.width,c.height);
+ if(!state.items.length){
+  ctx.fillStyle='#c7bdd2';ctx.font='12px sans-serif';
+  ctx.fillText('아이디어를 추가해 보세요',22,103);return;
+ }
+ const xs=state.items.map(i=>i.x),ys=state.items.map(i=>i.y);
+ const xe=state.items.map(i=>i.x+i.w),ye=state.items.map(i=>i.y+i.h);
+ let minX=Math.min(...xs),minY=Math.min(...ys),maxX=Math.max(...xe),maxY=Math.max(...ye);
+ const pad=25;minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
+ const scale=Math.min(c.width/(maxX-minX),c.height/(maxY-minY));
+ const ox=(c.width-(maxX-minX)*scale)/2-minX*scale;
+ const oy=(c.height-(maxY-minY)*scale)/2-minY*scale;
+ state.items.forEach(it=>{
+  ctx.fillStyle=it.type==='note'?it.color:it.type==='shape'?(it.color||'#E9DFFF'):'#c8b9e8';
+  ctx.fillRect(ox+it.x*scale,oy+it.y*scale,Math.max(3,it.w*scale),Math.max(2,it.h*scale));
+ });
+ const r=canvas.getBoundingClientRect(),vx=-state.x/state.zoom,vy=-state.y/state.zoom;
+ const vw=r.width/state.zoom,vh=r.height/state.zoom;
+ ctx.strokeStyle='#8c6bdb';ctx.lineWidth=2;
+ ctx.strokeRect(ox+vx*scale,oy+vy*scale,vw*scale,vh*scale);
+}
+function setTool(tool){
+ state.tool=tool;
+ document.querySelectorAll('.tool[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));
+ const labels={
+  select:'요소를 선택하고 이동',pan:'드래그해서 캔버스 이동',
+  note:'캔버스를 클릭해 메모 추가',text:'캔버스를 클릭해 텍스트 추가',
+  shape:'캔버스를 클릭해 도형 추가',image:'이미지 파일을 선택하세요',
+  connect:'연결할 요소 두 개를 차례로 선택',
+  group:'여러 요소를 선택한 뒤 그룹화',delete:'삭제할 요소를 선택'
+ };
+ $('#hint').textContent=labels[tool]||'빈 공간 더블클릭으로 메모 추가';
+ canvas.style.cursor=tool==='pan'?'grab':tool==='connect'?'crosshair':'default';
+ if(tool==='image')$('#imageInput').click();
+}
+function elementFromTarget(t){return t.closest('.item')}
+function itemPointerDown(e,el){
+ if(e.button!==0)return;
+ const id=el.dataset.id,it=getItem(id);if(!it)return;
+ if(e.target.closest('[contenteditable="true"],button,input'))return;
+ if(state.tool==='connect'){handleConnect(id);e.preventDefault();return}
+ if(state.tool==='delete'){deleteItems([id]);e.preventDefault();return}
+ if(state.tool==='group'){
+  if(state.selected.has(id))state.selected.delete(id);else state.selected.add(id);
+  updateUI();e.preventDefault();return;
+ }
+ if(state.tool==='pan'||state.spaceDown){startPan(e);return}
+ if(state.tool!=='select')return;
+ if(!state.selected.has(id)){
+  if(!e.shiftKey)state.selected.clear();state.selected.add(id);
+ }else if(e.shiftKey){state.selected.delete(id)}
+ state.selectedEdge=null;updateUI();
+ if(!state.selected.has(id))return;
+ pushUndo();
+ const start=screenToWorld(e.clientX,e.clientY),orig=new Map();
+ state.selected.forEach(sid=>{
+  const item=getItem(sid);if(item)orig.set(sid,{x:item.x,y:item.y});
+ });
+ state.drag={kind:'items',start,orig,pointerId:e.pointerId};
+ e.preventDefault();
+}
+function startPan(e){
+ state.drag={kind:'pan',sx:e.clientX,sy:e.clientY,ox:state.x,oy:state.y,pointerId:e.pointerId};
+ canvas.style.cursor='grabbing';e.preventDefault();
+}
+function pointerMove(e){
+ const d=state.drag;if(!d)return;
+ if(d.kind==='pan'){
+  state.x=d.ox+e.clientX-d.sx;state.y=d.oy+e.clientY-d.sy;
+  applyTransform();return;
+ }
+ if(d.kind==='items'){
+  const p=screenToWorld(e.clientX,e.clientY),dx=p.x-d.start.x,dy=p.y-d.start.y;
+  d.orig.forEach((o,id)=>{
+   const it=getItem(id);
+   if(it){
+    it.x=o.x+dx;it.y=o.y+dy;
+    const el=document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if(el){el.style.left=it.x+'px';el.style.top=it.y+'px'}
+   }
+  });
+  drawEdges();drawMinimap();
+ }
+ if(d.kind==='resize'){
+  const it=getItem(d.id);
+  if(it){
+   it.w=clamp(d.w+(e.clientX-d.sx)/state.zoom,70,900);
+   it.h=clamp(d.h+(e.clientY-d.sy)/state.zoom,45,900);
+   const el=document.querySelector(`[data-id="${CSS.escape(it.id)}"]`);
+   if(el){el.style.width=it.w+'px';el.style.height=it.h+'px'}
+   drawEdges();drawMinimap();
+  }
+ }
+ if(d.kind==='box'){
+  const x=Math.min(d.sx,e.clientX),y=Math.min(d.sy,e.clientY);
+  const w=Math.abs(e.clientX-d.sx),h=Math.abs(e.clientY-d.sy);
+  const r=canvas.getBoundingClientRect(),box=$('#selectionBox');
+  box.style.display='block';box.style.left=(x-r.left)+'px';
+  box.style.top=(y-r.top)+'px';box.style.width=w+'px';box.style.height=h+'px';
+ }
+}
+function pointerUp(e){
+ const d=state.drag;if(!d)return;
+ if(d.kind==='box'){
+  const r=$('#selectionBox').getBoundingClientRect();state.selected.clear();
+  document.querySelectorAll('.item').forEach(el=>{
+   const b=el.getBoundingClientRect();
+   if(b.right>=r.left&&b.left<=r.right&&b.bottom>=r.top&&b.top<=r.bottom)state.selected.add(el.dataset.id);
+  });
+  $('#selectionBox').style.display='none';updateUI();
+ }
+ if(d.kind==='items'||d.kind==='resize'){
+  state.items.forEach(renderItem);updateUI();scheduleSave();
+ }
+ if(d.kind==='pan'){
+  canvas.style.cursor=state.tool==='pan'?'grab':'default';scheduleSave();
+ }
+ state.drag=null;
+}
+function handleConnect(id){
+ if(!state.connectFrom){
+  state.connectFrom=id;state.selected.clear();state.selected.add(id);
+  updateUI();toast('이제 연결할 두 번째 요소를 선택하세요');return;
+ }
+ if(state.connectFrom===id){state.connectFrom=null;toast('연결을 취소했어요');return}
+ pushUndo();
+ state.edges.push({id:uid(),from:state.connectFrom,to:id,arrow:true,label:''});
+ state.connectFrom=null;setTool('select');updateUI();scheduleSave();toast('두 요소를 연결했어요');
+}
+function deleteItems(ids){
+ if(!ids.length)return;pushUndo();
+ const set=new Set(ids);
+ state.items=state.items.filter(i=>!set.has(i.id));
+ state.edges=state.edges.filter(e=>!set.has(e.from)&&!set.has(e.to));
+ state.groups.forEach(g=>g.items=g.items.filter(id=>!set.has(id)));
+ state.groups=state.groups.filter(g=>g.items.length>1);
+ state.selected.clear();state.selectedEdge=null;
+ renderAll();scheduleSave();toast('삭제했어요');
+}
+function groupSelected(){
+ const ids=[...state.selected];
+ if(ids.length<2){toast('그룹으로 묶을 요소를 2개 이상 선택하세요');return}
+ pushUndo();
+ const group={id:uid(),name:'아이디어 그룹',items:ids};state.groups.push(group);
+ ids.forEach(id=>{const it=getItem(id);if(it)it.groupId=group.id});
+ updateUI();scheduleSave();toast(`${ids.length}개 요소를 그룹으로 묶었어요`);
+}
+function duplicateItem(id){
+ const it=getItem(id);if(!it)return;pushUndo();
+ const clone={...it,id:uid(),x:it.x+24,y:it.y+24,groupId:null};
+ state.items.push(clone);state.selected.clear();state.selected.add(clone.id);
+ renderItem(clone);updateUI();scheduleSave();
+}
+function openModal(title,desc,fields,callback){
+ $('#modalTitle').textContent=title;$('#modalDescription').textContent=desc;
+ const wrap=$('#modalFields');wrap.innerHTML='';
+ fields.forEach(f=>{
+  const label=document.createElement('label');label.className='field';label.textContent=f.label;
+  let input;
+  if(f.type==='textarea'){input=document.createElement('textarea');input.value=f.value||''}
+  else{input=document.createElement('input');input.type=f.type||'text';input.value=f.value||''}
+  input.id='modal_'+f.name;input.placeholder=f.placeholder||'';
+  label.appendChild(input);wrap.appendChild(label);
+ });
+ modalCallback=callback;$('#modalBackdrop').classList.add('open');
+ const first=wrap.querySelector('input,textarea');if(first)first.focus();
+}
+function closeModal(){$('#modalBackdrop').classList.remove('open');modalCallback=null}
+function editItem(id){
+ const it=getItem(id);if(!it)return;
+ openModal('요소 편집','제목과 내용을 정리해 보세요.',[
+  {name:'title',label:'제목',value:it.title||''},
+  {name:'text',label:'내용',type:'textarea',value:it.text||''}
+ ],values=>{
+  pushUndo();it.title=values.title;it.text=values.text;
+  renderItem(it);updateUI();scheduleSave();
+ });
+}
+function showContext(e,id){
+ contextTarget=id;const menu=$('#contextMenu');
+ menu.style.display='block';
+ menu.style.left=clamp(e.clientX,6,innerWidth-190)+'px';
+ menu.style.top=clamp(e.clientY,6,innerHeight-250)+'px';
+}
+itemsEl.addEventListener('pointerdown',e=>{
+ const el=elementFromTarget(e.target);if(!el)return;itemPointerDown(e,el);
+});
+itemsEl.addEventListener('click',e=>{
+ const el=elementFromTarget(e.target);if(!el)return;
+ const id=el.dataset.id,it=getItem(id);
+ const action=e.target.closest('[data-action]')?.dataset.action;
+ if(action==='delete'){e.stopPropagation();deleteItems([id]);return}
+ if(action==='edit'){e.stopPropagation();editItem(id);return}
+ if(action==='resize'){
+  e.stopPropagation();pushUndo();
+  state.drag={kind:'resize',id,sx:e.clientX,sy:e.clientY,w:it.w,h:it.h};return;
+ }
+ if(e.target.matches('.color-picker')){
+  pushUndo();it.color=e.target.value;renderItem(it);updateUI();scheduleSave();return;
+ }
+ if(!e.target.closest('[contenteditable="true"]')){
+  if(state.tool==='select'&&!e.shiftKey){state.selected.clear();state.selected.add(id);updateUI()}
+ }
+});
+itemsEl.addEventListener('contextmenu',e=>{
+ const el=elementFromTarget(e.target);if(!el)return;
+ e.preventDefault();showContext(e,el.dataset.id);
+});
+itemsEl.addEventListener('input',e=>{
+ const el=elementFromTarget(e.target);if(!el)return;
+ const it=getItem(el.dataset.id),field=e.target.dataset.edit;
+ if(!it||!field)return;
+ it[field]=e.target.innerText;scheduleSave();
+});
+itemsEl.addEventListener('focusin',e=>{
+ const el=elementFromTarget(e.target);
+ if(el&&!state.selected.has(el.dataset.id)){
+  state.selected.clear();state.selected.add(el.dataset.id);updateUI();
+ }
+});
+itemsEl.addEventListener('keydown',e=>{
+ if(e.key==='Escape'&&e.target.isContentEditable)e.target.blur();
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='a'&&e.target.isContentEditable)e.stopPropagation();
+});
+canvas.addEventListener('pointerdown',e=>{
+ if(e.target.closest('.toolbar,.zoom-controls,.minimap,.bottom-left,.search-panel,.item,.context'))return;
+ if(e.button!==0)return;
+ if(state.tool==='pan'||state.spaceDown){startPan(e);return}
+ const p=screenToWorld(e.clientX,e.clientY);
+ if(state.tool==='note'){addNote(p.x,p.y);return}
+ if(state.tool==='text'){addText(p.x,p.y);return}
+ if(state.tool==='shape'){addShape(p.x,p.y);return}
+ if(state.tool==='image'){$('#imageInput').click();return}
+ if(state.tool==='connect')return;
+ if(state.tool==='select'&&e.detail===2){addNote(p.x,p.y);return}
+ if(state.tool==='select'){
+  if(!e.shiftKey){state.selected.clear();state.selectedEdge=null;updateUI()}
+  state.drag={kind:'box',sx:e.clientX,sy:e.clientY};
+ }
+});
+canvas.addEventListener('dblclick',e=>{
+ if(e.target.closest('.item,.toolbar,.zoom-controls,.minimap,.bottom-left,.search-panel'))return;
+ if(state.tool!=='select')return;
+ const p=screenToWorld(e.clientX,e.clientY);addNote(p.x,p.y);
+});
+canvas.addEventListener('pointermove',pointerMove);
+window.addEventListener('pointerup',pointerUp);
+window.addEventListener('pointercancel',pointerUp);
+canvas.addEventListener('wheel',e=>{
+ e.preventDefault();zoomAt(state.zoom*(e.deltaY<0?1.1:.9),e.clientX,e.clientY);
+},{passive:false});
+edgesSvg.addEventListener('click',e=>{
+ const g=e.target.closest('[data-edge-id]');if(!g)return;
+ state.selectedEdge=g.dataset.edgeId;updateUI();
+ if(e.detail===2){
+  const edge=state.edges.find(x=>x.id===state.selectedEdge);
+  if(edge)openModal('연결선 설명','이 연결이 의미하는 관계를 적어 보세요.',[
+   {name:'label',label:'연결선 설명',value:edge.label||''}
+  ],v=>{pushUndo();edge.label=v.label;drawEdges();scheduleSave()});
+ }
+});
+edgesSvg.addEventListener('contextmenu',e=>{
+ const g=e.target.closest('[data-edge-id]');if(!g)return;
+ e.preventDefault();
+ const edge=state.edges.find(x=>x.id===g.dataset.edgeId);
+ if(edge&&confirm('이 연결선을 삭제할까요?')){
+  pushUndo();state.edges=state.edges.filter(x=>x.id!==edge.id);
+  state.selectedEdge=null;drawEdges();scheduleSave();
+ }
+});
+document.querySelectorAll('.tool[data-tool]').forEach(b=>b.addEventListener('click',()=>{
+ if(b.dataset.tool==='group'){groupSelected();return}
+ if(b.dataset.tool==='delete'){deleteItems([...state.selected]);return}
+ setTool(b.dataset.tool);
+}));
+$('#zoomIn').addEventListener('click',()=>{
+ const r=canvas.getBoundingClientRect();
+ zoomAt(state.zoom*1.15,r.left+r.width/2,r.top+r.height/2);
+});
+$('#zoomOut').addEventListener('click',()=>{
+ const r=canvas.getBoundingClientRect();
+ zoomAt(state.zoom/1.15,r.left+r.width/2,r.top+r.height/2);
+});
+$('#fitBtn').addEventListener('click',fitAll);
+function fitAll(){
+ if(!state.items.length){
+  state.zoom=1;state.x=canvas.clientWidth/2;state.y=canvas.clientHeight/2;
+  applyTransform();return;
+ }
+ const minX=Math.min(...state.items.map(i=>i.x)),minY=Math.min(...state.items.map(i=>i.y));
+ const maxX=Math.max(...state.items.map(i=>i.x+i.w)),maxY=Math.max(...state.items.map(i=>i.y+i.h));
+ const pad=100;
+ const scale=clamp(Math.min(
+  (canvas.clientWidth-pad*2)/(maxX-minX||1),
+  (canvas.clientHeight-pad*2)/(maxY-minY||1)
+ ),.2,1.5);
+ state.zoom=scale;
+ state.x=(canvas.clientWidth-(maxX-minX)*scale)/2-minX*scale;
+ state.y=(canvas.clientHeight-(maxY-minY)*scale)/2-minY*scale;
+ applyTransform();scheduleSave();
+}
+$('#undoBtn').addEventListener('click',undo);
+$('#redoBtn').addEventListener('click',redo);
+$('#boardTitle').addEventListener('input',scheduleSave);
+$('#searchBtn').addEventListener('click',()=>{
+ $('#searchPanel').classList.toggle('open');
+ if($('#searchPanel').classList.contains('open'))$('#searchInput').focus();
+});
+$('#searchInput').addEventListener('input',()=>{
+ const q=$('#searchInput').value.trim().toLowerCase(),wrap=$('#searchResults');
+ wrap.innerHTML='';if(!q)return;
+ const matches=state.items.filter(it=>((it.title||'')+' '+(it.text||'')).toLowerCase().includes(q)).slice(0,30);
+ if(!matches.length){
+  wrap.innerHTML='<div style="padding:10px;color:#827d91;font-size:12px">검색 결과가 없어요.</div>';return;
+ }
+ matches.forEach(it=>{
+  const b=document.createElement('button');b.className='search-result';
+  b.textContent=(it.title||it.text||'제목 없는 요소').slice(0,90);
+  b.addEventListener('click',()=>{
+   state.x=canvas.clientWidth/2-(it.x+it.w/2)*state.zoom;
+   state.y=canvas.clientHeight/2-(it.y+it.h/2)*state.zoom;
+   state.selected.clear();state.selected.add(it.id);
+   applyTransform();updateUI();$('#searchPanel').classList.remove('open');
+  });
+  wrap.appendChild(b);
+ });
+});
+$('#imageInput').addEventListener('change',e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ if(!file.type.startsWith('image/')){toast('이미지 파일만 추가할 수 있어요');return}
+ if(file.size>5*1024*1024){toast('이미지는 5MB 이하로 선택해 주세요');e.target.value='';return}
+ const reader=new FileReader();
+ reader.onload=()=>{
+  const center=screenToWorld(
+   canvas.getBoundingClientRect().left+canvas.clientWidth/2,
+   canvas.getBoundingClientRect().top+canvas.clientHeight/2
+  );
+  const img=new Image();
+  img.onload=()=>{
+   const w=Math.min(300,img.naturalWidth),h=w*img.naturalHeight/img.naturalWidth;
+   addImageData(reader.result,center.x-w/2,center.y-h/2,w,h);
+  };
+  img.src=reader.result;
+ };
+ reader.readAsDataURL(file);e.target.value='';setTool('select');
+});
+$('#exportBtn').addEventListener('click',()=>{
+ const blob=new Blob([snapshot()],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='idea-space-backup.json';a.click();
+ URL.revokeObjectURL(url);toast('백업 파일을 만들었어요');
+});
+$('#importBtn').addEventListener('click',()=>$('#importInput').click());
+$('#importInput').addEventListener('change',e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const d=JSON.parse(reader.result);
+   if(!Array.isArray(d.items)||!Array.isArray(d.edges))throw Error('invalid');
+   pushUndo();restoreSnapshot(JSON.stringify(d));toast('보드를 불러왔어요');
+  }catch(err){toast('올바른 Idea Space 백업 파일이 아니에요')}
+ };
+ reader.readAsText(file);e.target.value='';
+});
+$('#modalCancel').addEventListener('click',closeModal);
+$('#modalBackdrop').addEventListener('click',e=>{
+ if(e.target===$('#modalBackdrop'))closeModal();
+});
+$('#modalSave').addEventListener('click',()=>{
+ if(!modalCallback){closeModal();return}
+ const values={};
+ $('#modalFields').querySelectorAll('input,textarea').forEach(el=>{
+  values[el.id.replace('modal_','')]=el.value;
+ });
+ const cb=modalCallback;closeModal();cb(values);
+});
+$('#contextMenu').addEventListener('click',e=>{
+ const action=e.target.dataset.action,id=contextTarget;
+ $('#contextMenu').style.display='none';if(!action||!id)return;
+ if(!state.selected.has(id)){state.selected.clear();state.selected.add(id)}
+ if(action==='edit')editItem(id);
+ if(action==='connect'){state.connectFrom=id;setTool('connect');toast('연결할 두 번째 요소를 선택하세요')}
+ if(action==='group')groupSelected();
+ if(action==='duplicate')duplicateItem(id);
+ if(action==='delete')deleteItems([...state.selected]);
+ if(action==='front'){
+  const el=document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+  if(el){pushUndo();itemsEl.appendChild(el);scheduleSave()}
+ }
+});
+document.addEventListener('pointerdown',e=>{
+ if(!e.target.closest('#contextMenu'))$('#contextMenu').style.display='none';
+ if(!e.target.closest('#searchPanel')&&!e.target.closest('#searchBtn'))$('#searchPanel').classList.remove('open');
+});
+window.addEventListener('keydown',e=>{
+ const typing=e.target.matches('input,textarea,[contenteditable="true"]');
+ if(e.key==='Escape'){
+  closeModal();$('#searchPanel').classList.remove('open');
+  $('#contextMenu').style.display='none';state.connectFrom=null;return;
+ }
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!typing){
+  e.preventDefault();e.shiftKey?redo():undo();return;
+ }
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'&&!typing){e.preventDefault();redo();return}
+ if(typing)return;
+ if(e.code==='Space'){state.spaceDown=true;e.preventDefault();return}
+ if((e.key==='Delete'||e.key==='Backspace')&&state.selected.size){deleteItems([...state.selected]);return}
+ if(e.key==='v'||e.key==='V')setTool('select');
+ if(e.key==='h'||e.key==='H')setTool('pan');
+ if(e.key==='n'||e.key==='N')setTool('note');
+ if(e.key==='t'||e.key==='T')setTool('text');
+ if(e.key==='s'||e.key==='S')setTool('shape');
+ if(e.key==='c'||e.key==='C')setTool('connect');
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&state.selected.size){
+  e.preventDefault();duplicateItem([...state.selected][0]);
+ }
+});
+window.addEventListener('keyup',e=>{
+ if(e.code==='Space'){
+  state.spaceDown=false;
+  if(!state.drag)canvas.style.cursor=state.tool==='pan'?'grab':'default';
+ }
+});
+window.addEventListener('resize',()=>{drawMinimap();drawEdges()});
+loadSaved();renderAll();applyTransform();updateHistoryButtons();
+if(!state.items.length){
+ state.x=canvas.clientWidth/2;state.y=canvas.clientHeight/2;applyTransform();
+}
+})();
+</script>
+</body>
+</html>
